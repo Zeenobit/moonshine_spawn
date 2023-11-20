@@ -10,11 +10,11 @@ In Bevy, complex hierarchies of entities are typically spawned using [`ChildBuil
 fn spawn_chicken(commands: &mut Commands) -> Entity {
     // Spawn logic is spread between this function and the bundle
     commands.spawn(ChickenBundle::new()).with_children(|chicken| {
-        chicken.spawn(ChickenHead).with_children(|head| {
-            head.spawn(ChickenBody).with_children(|body| {
+        chicken.spawn(ChickenHead.with_children(|head| {
+            head.spawn(ChickenBody.with_children(|body| {
                 body.spawn(ChickenLegs)
-            });
-        });
+            }));
+        }));
     })
     .id()
 }
@@ -58,11 +58,11 @@ impl ChickenBundle {
         Self {
             chicken: Chicken,
             children: spawn_children(|chicken| {
-                chicken.spawn(ChickenHead).with_children(|head| {
-                    head.spawn(ChickenBody).with_children(|body| {
+                chicken.spawn(ChickenHead.with_children(|head| {
+                    head.spawn(ChickenBody.with_children(|body| {
                         body.spawn(ChickenLegs)
-                    });
-                });
+                    }));
+                }));
             })
         }
     }
