@@ -11,7 +11,8 @@ use bevy_utils::HashMap;
 pub mod prelude {
     pub use super::{
         spawn_children, spawn_key, RegisterSpawnable, Spawn, SpawnChildBuilder, SpawnChildren,
-        SpawnCommands, SpawnKey, SpawnOnce, SpawnPlugin, SpawnWorld, Spawnables, WithChildren,
+        SpawnCommands, SpawnKey, SpawnOnce, SpawnPlugin, SpawnWorld, Spawnables, StaticSpawnKey,
+        WithChildren,
     };
 }
 
