@@ -5,6 +5,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::EntityCommands;
 use bevy_hierarchy::BuildWorldChildren;
+use bevy_reflect::prelude::*;
 use bevy_utils::HashMap;
 
 pub mod prelude {
@@ -18,7 +19,8 @@ pub struct SpawnPlugin;
 
 impl Plugin for SpawnPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(Spawnables::default())
+        app.register_type::<SpawnKey>()
+            .insert_resource(Spawnables::default())
             .add_systems(First, invoke_spawn_children.run_if(should_spawn_children));
     }
 }
@@ -94,7 +96,7 @@ pub trait SpawnCommands<'w, 's> {
     where
         T: 'static + Send + Sync;
 
-    fn spawn_with_key(&mut self, key: SpawnKey) -> EntityCommands<'w, 's, '_>;
+    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'w, 's, '_>;
 }
 
 impl<'w, 's> SpawnCommands<'w, 's> for Commands<'w, 's> {
@@ -110,7 +112,8 @@ impl<'w, 's> SpawnCommands<'w, 's> for Commands<'w, 's> {
         self.entity(entity)
     }
 
-    fn spawn_with_key(&mut self, key: SpawnKey) -> EntityCommands<'w, 's, '_> {
+    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'w, 's, '_> {
+        let key = key.into();
         let entity = self.spawn_empty().id();
         self.add(move |world: &mut World| {
             if let Some(spawnable) = world.resource_mut::<Spawnables>().take(&key) {
@@ -130,7 +133,7 @@ pub trait SpawnWorld {
     where
         T: 'static + Send + Sync;
 
-    fn spawn_with_key(&mut self, key: SpawnKey) -> EntityWorldMut;
+    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityWorldMut;
 }
 
 impl SpawnWorld for World {
@@ -145,7 +148,8 @@ impl SpawnWorld for World {
         self.entity_mut(entity)
     }
 
-    fn spawn_with_key(&mut self, key: SpawnKey) -> EntityWorldMut {
+    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityWorldMut {
+        let key = key.into();
         let entity = self.spawn_empty().id();
         if let Some(spawnable) = self.resource_mut::<Spawnables>().take(&key) {
             spawnable.spawn(self, entity);
@@ -193,19 +197,21 @@ impl Spawnables {
     }
 }
 
-/// A unique string-based identifier used to spawn a spawnable registered with [`Spawnables`].
-#[derive(Clone)]
-pub enum SpawnKey {
-    Dynamic(String),
-    Static(&'static str),
+pub struct StaticSpawnKey(&'static str);
+
+impl From<StaticSpawnKey> for SpawnKey {
+    fn from(key: StaticSpawnKey) -> Self {
+        key.0.into()
+    }
 }
+
+/// A unique string-based identifier used to spawn a spawnable registered with [`Spawnables`].
+#[derive(Clone, Reflect)]
+pub struct SpawnKey(String);
 
 impl SpawnKey {
     pub fn name(&self) -> &str {
-        match self {
-            Self::Dynamic(name) => name,
-            Self::Static(name) => name,
-        }
+        &self.0
     }
 }
 
@@ -231,13 +237,13 @@ impl fmt::Debug for SpawnKey {
 
 impl From<String> for SpawnKey {
     fn from(name: String) -> Self {
-        Self::Dynamic(name)
+        Self(name)
     }
 }
 
 impl From<&str> for SpawnKey {
     fn from(name: &str) -> Self {
-        Self::Dynamic(name.to_string())
+        Self(name.to_owned())
     }
 }
 
@@ -248,8 +254,8 @@ impl From<&str> for SpawnKey {
 /// # use moonshine_spawn::prelude::*;
 /// const FOO: SpawnKey = spawn_key("FOO");
 /// ```
-pub const fn spawn_key(name: &'static str) -> SpawnKey {
-    SpawnKey::Static(name)
+pub const fn spawn_key(name: &'static str) -> StaticSpawnKey {
+    StaticSpawnKey(name)
 }
 
 /// A convenient macro for defining static [`SpawnKey`]s.
@@ -262,7 +268,7 @@ pub const fn spawn_key(name: &'static str) -> SpawnKey {
 #[macro_export]
 macro_rules! spawn_key {
     ($i:ident) => {
-        const $i: $crate::SpawnKey = $crate::spawn_key(stringify!($i));
+        const $i: $crate::StaticSpawnKey = $crate::spawn_key(stringify!($i));
     };
     ($($i:ident),*) => {
         $(spawn_key!($i);)*
@@ -359,8 +365,8 @@ impl SpawnChildBuilder<'_> {
         self
     }
 
-    pub fn spawn_with_key(&mut self, key: SpawnKey) -> &mut Self {
-        self.0.add_child_with_key(key);
+    pub fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> &mut Self {
+        self.0.add_child_with_key(key.into());
         self
     }
 }
