@@ -1,0 +1,16 @@
+[package]
+name = "moonshine-spawn"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy_app = "0.12.*"
+bevy_ecs = "0.12.*"
+bevy_reflect = "0.12.*"
+bevy_utils = "0.12.*"
+bevy_hierarchy = "0.12.*"
+
+[dev-dependencies]
+bevy = "0.12.*"
