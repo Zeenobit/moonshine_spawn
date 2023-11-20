@@ -199,3 +199,22 @@ spawn_key!(
     SMALL_CHICKEN
 );
 ```
+
+You can then spawn a spawnable using a spawn key at runtime, either using `Commands`, `&mut World`:
+
+```rust
+let chicken: EntityCommands = commands.spawn_with_key(CHICKEN);
+```
+
+You may also use spawn keys to spawn children from bundles:
+
+```rust
+fn chicken() -> impl Bundle {
+    ChickenBundle {
+        chicken: Chicken,
+        children: spawn_children(|chicken| {
+            chicken.spawn_with_key(CHICKEN_HEAD);
+        })
+    }
+}
+```
