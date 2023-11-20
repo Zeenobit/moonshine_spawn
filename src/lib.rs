@@ -253,7 +253,7 @@ impl From<&str> for SpawnKey {
 /// # Example
 /// ```
 /// # use moonshine_spawn::prelude::*;
-/// const FOO: SpawnKey = spawn_key("FOO");
+/// const FOO: StaticSpawnKey = spawn_key("FOO");
 /// ```
 pub const fn spawn_key(name: &'static str) -> StaticSpawnKey {
     StaticSpawnKey(name)
