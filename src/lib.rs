@@ -211,6 +211,10 @@ impl From<StaticSpawnKey> for SpawnKey {
 pub struct SpawnKey(String);
 
 impl SpawnKey {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self(name.into())
+    }
+
     pub fn name(&self) -> &str {
         &self.0
     }
