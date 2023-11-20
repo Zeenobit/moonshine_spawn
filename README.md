@@ -83,8 +83,8 @@ fn spawn_chicken_with_key(commands: &mut Commands) -> Entity {
 
 ### Features
 - Bundles with children
-- Statically defined spawnables
-- Custom functional spawnables
+- Statically defined spawnables with serializable spawn keys
+- Custom spawners
 - Lightweight implementation with minimal boilerplate
 
 ## Usage
@@ -154,7 +154,7 @@ fn chicken() -> impl Bundle {
 }
 ```
 
-Or use the `SpawnChildren` component:
+Or use the `SpawnChildren` component and the `spawn_children` function:
 
 ```rust
 #[derive(Bundle)]
@@ -178,7 +178,7 @@ fn chicken() -> impl Bundle {
 
 You can define a static spawnable using a `SpawnKey`:
 ```rust
-const CHICKEN: SpawnKey = spawn_key("CHICKEN");
+const CHICKEN: StaticSpawnKey = spawn_key("CHICKEN");
 ```
 
 Spawn keys must be unique within the scope of a `World` and are registered using the `RegisterSpawnable` extension trait.
