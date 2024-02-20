@@ -92,16 +92,16 @@ impl RegisterSpawnable for &mut App {
 }
 
 /// Trait used to spawn spawnables either directly or via a [`SpawnKey`] using [`Commands`].
-pub trait SpawnCommands<'w, 's> {
-    fn spawn_with<T: SpawnOnce>(&mut self, spawnable: T) -> EntityCommands<'w, 's, '_>
+pub trait SpawnCommands {
+    fn spawn_with<T: SpawnOnce>(&mut self, spawnable: T) -> EntityCommands<'_>
     where
         T: 'static + Send + Sync;
 
-    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'w, 's, '_>;
+    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'_>;
 }
 
-impl<'w, 's> SpawnCommands<'w, 's> for Commands<'w, 's> {
-    fn spawn_with<T: SpawnOnce>(&mut self, spawnable: T) -> EntityCommands<'w, 's, '_>
+impl SpawnCommands for Commands<'_, '_> {
+    fn spawn_with<T: SpawnOnce>(&mut self, spawnable: T) -> EntityCommands<'_>
     where
         T: 'static + Send + Sync,
     {
@@ -113,7 +113,7 @@ impl<'w, 's> SpawnCommands<'w, 's> for Commands<'w, 's> {
         self.entity(entity)
     }
 
-    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'w, 's, '_> {
+    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'_> {
         let key = key.into();
         let entity = self.spawn_empty().id();
         self.add(move |world: &mut World| {
