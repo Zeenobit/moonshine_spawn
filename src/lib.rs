@@ -35,7 +35,6 @@ impl Plugin for SpawnPlugin {
 pub trait SpawnOnce {
     type Output: Bundle;
 
-    #[must_use]
     fn spawn_once(self, world: &World, entity: Entity) -> Self::Output;
 }
 
@@ -57,7 +56,6 @@ impl<T: Bundle> SpawnOnce for T {
 pub trait Spawn {
     type Output: Bundle;
 
-    #[must_use]
     fn spawn(&self, world: &World, entity: Entity) -> Self::Output;
 }
 
@@ -172,7 +170,6 @@ impl Spawnables {
     ///
     /// # Warning
     /// This function will panic if the given key is already registered.
-    #[must_use]
     pub fn register<T: Spawn>(&mut self, key: impl Into<SpawnKey>, spawnable: T) -> SpawnKey
     where
         T: 'static + Send + Sync,
@@ -317,7 +314,6 @@ impl<T: Bundle> WithChildren for T {
 pub struct SpawnChildren(Vec<Box<dyn SpawnableOnce>>);
 
 impl SpawnChildren {
-    #[must_use]
     fn new() -> Self {
         Self(Vec::new())
     }
