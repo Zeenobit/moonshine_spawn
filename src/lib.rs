@@ -197,6 +197,12 @@ impl Spawnables {
 
 pub struct StaticSpawnKey(&'static str);
 
+impl StaticSpawnKey {
+    pub fn name(&self) -> &str {
+        self.0
+    }
+}
+
 impl From<StaticSpawnKey> for SpawnKey {
     fn from(key: StaticSpawnKey) -> Self {
         key.0.into()
