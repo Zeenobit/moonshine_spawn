@@ -10,9 +10,8 @@ use bevy_utils::HashMap;
 
 pub mod prelude {
     pub use super::{
-        spawn_children, spawn_key, RegisterSpawnable, Spawn, SpawnChildBuilder, SpawnChildren,
-        SpawnCommands, SpawnKey, SpawnOnce, SpawnPlugin, SpawnWorld, Spawnables, StaticSpawnKey,
-        WithChildren,
+        spawn_children, RegisterSpawnable, Spawn, SpawnChildBuilder, SpawnChildren, SpawnCommands,
+        SpawnKey, SpawnOnce, SpawnPlugin, SpawnWorld, Spawnables, WithChildren,
     };
 }
 
@@ -195,19 +194,8 @@ impl Spawnables {
     }
 }
 
+#[deprecated(note = "use raw static strings")]
 pub struct StaticSpawnKey(&'static str);
-
-impl StaticSpawnKey {
-    pub fn name(&self) -> &str {
-        self.0
-    }
-}
-
-impl From<StaticSpawnKey> for SpawnKey {
-    fn from(key: StaticSpawnKey) -> Self {
-        key.0.into()
-    }
-}
 
 /// A unique string-based identifier used to spawn a spawnable registered with [`Spawnables`].
 #[derive(Clone, Reflect)]
@@ -255,28 +243,18 @@ impl From<&str> for SpawnKey {
     }
 }
 
-/// A function for defining a new static [`SpawnKey`].
-///
-/// # Example
-/// ```
-/// # use moonshine_spawn::prelude::*;
-/// const FOO: StaticSpawnKey = spawn_key("FOO");
-/// ```
-pub const fn spawn_key(name: &'static str) -> StaticSpawnKey {
-    StaticSpawnKey(name)
+#[doc(hidden)]
+#[deprecated(note = "use raw static strings")]
+pub const fn spawn_key(name: &'static str) -> &'static str {
+    name
 }
 
-/// A convenient macro for defining static [`SpawnKey`]s.
-/// # Example
-/// ```
-/// # use moonshine_spawn::prelude::*;
-/// spawn_key!(FOO);
-/// spawn_key!(BAR, BAZ);
-/// ```
+#[doc(hidden)]
+#[deprecated(note = "use raw static strings")]
 #[macro_export]
 macro_rules! spawn_key {
     ($i:ident) => {
-        const $i: $crate::StaticSpawnKey = $crate::spawn_key(stringify!($i));
+        const $i: &'static str = $crate::spawn_key(stringify!($i));
     };
     ($($i:ident),*) => {
         $(spawn_key!($i);)*
@@ -459,8 +437,6 @@ mod tests {
     #[derive(Component, Clone)]
     struct Bar;
 
-    spawn_key!(FOO, BAR);
-
     #[test]
     fn spawn_bundle() {
         let mut app = app();
@@ -484,19 +460,19 @@ mod tests {
     #[test]
     fn spawn_with_key() {
         let mut app = app();
-        app.register_spawnable(FOO, Foo);
+        app.register_spawnable("FOO", Foo);
         let world = &mut app.world;
-        let entity = world.spawn_with_key(FOO).id();
+        let entity = world.spawn_with_key("FOO").id();
         assert!(world.entity(entity).contains::<Foo>());
     }
 
     #[test]
     fn spawn_with_key_deferred() {
         let mut app = app();
-        app.register_spawnable(FOO, Foo);
+        app.register_spawnable("FOO", Foo);
         let entity = {
             let world = &mut app.world;
-            world.run_system_once(|mut commands: Commands| commands.spawn_with_key(FOO).id())
+            world.run_system_once(|mut commands: Commands| commands.spawn_with_key("FOO").id())
         };
         app.update();
         let world = app.world;
@@ -540,11 +516,11 @@ mod tests {
     #[test]
     fn spawn_bundle_with_children_with_key() {
         let mut app = app();
-        app.register_spawnable(BAR, Bar);
+        app.register_spawnable("BAR", Bar);
         let world = &mut app.world;
         let entity = world
             .spawn_with(Foo.with_children(|foo| {
-                foo.spawn_with_key(BAR);
+                foo.spawn_with_key("BAR");
             }))
             .id();
         let children = world.entity(entity).get::<Children>().unwrap();
@@ -555,13 +531,13 @@ mod tests {
     #[test]
     fn spawn_bundle_with_children_with_key_deferred() {
         let mut app = app();
-        app.register_spawnable(BAR, Bar);
+        app.register_spawnable("BAR", Bar);
         let entity = {
             let world = &mut app.world;
             world.run_system_once(|mut commands: Commands| {
                 commands
                     .spawn_with(Foo.with_children(|foo| {
-                        foo.spawn_with_key(BAR);
+                        foo.spawn_with_key("BAR");
                     }))
                     .id()
             })
