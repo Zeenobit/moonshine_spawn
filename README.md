@@ -68,16 +68,16 @@ impl ChickenBundle {
     }
 }
 
-// Define a static spawn key for Chickens
-spawn_key!(CHICKEN);
 
 fn register_chicken(app: &mut App) {
-    // Register `ChickenBundle` as a spawnable
-    app.register_spawnable(CHICKEN, ChickenBundle::new());
+    // Register `ChickenBundle` as a spawnable with the key "Chicken"
+    // Each spawnable must have a unique key!
+    app.register_spawnable("Chicken", ChickenBundle::new());
 }
 
 fn spawn_chicken_with_key(commands: &mut Commands) -> Entity {
-    commands.spawn_with_key(CHICKEN).id()
+    // The same key may be used to spawn a spawnable at runtime
+    commands.spawn_with_key("Chicken").id()
 }
 ```
 
@@ -174,46 +174,32 @@ fn chicken() -> impl Bundle {
 }
 ```
 
-### Static Spawnables
+### Keys
 
-You can define a static spawnable using a `SpawnKey`:
-```rust
-const CHICKEN: StaticSpawnKey = spawn_key("CHICKEN");
-```
+Spawn keys are a way to reference a spawnable by a unique string.
 
-Spawn keys must be unique within the scope of a `World` and are registered using the `RegisterSpawnable` extension trait.
+These keys must be unique within the scope of a `World` and are registered using the `RegisterSpawnable` extension trait.
 
 Use this to register your spawnables during app initialization:
 
 ```rust
-app.register_spawnable(CHICKEN, chicken());
-```
-
-You may also use the `spawn_key!` macro to conveniently define one or more spawn keys that match their string representation:
-
-```rust
-spawn_key!(CHICKEN);
-
-spawn_key!(
-    LARGE_CHICKEN,
-    SMALL_CHICKEN
-);
+app.register_spawnable("Chicken", chicken());
 ```
 
 You can then spawn a spawnable using a spawn key at runtime, either using `Commands`, `&mut World`:
 
 ```rust
-let chicken: EntityCommands = commands.spawn_with_key(CHICKEN);
+let chicken: EntityCommands = commands.spawn_with_key("Chicken");
 ```
 
-You may also use spawn keys to spawn children from bundles:
+You may also use spawn keys when spawning children of a bundle:
 
 ```rust
 fn chicken() -> impl Bundle {
     ChickenBundle {
         chicken: Chicken,
         children: spawn_children(|chicken| {
-            chicken.spawn_with_key(CHICKEN_HEAD);
+            chicken.spawn_with_key("Chicken/Head");
         })
     }
 }
