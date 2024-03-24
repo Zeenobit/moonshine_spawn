@@ -194,9 +194,6 @@ impl Spawnables {
     }
 }
 
-#[deprecated(note = "use raw static strings")]
-pub struct StaticSpawnKey(&'static str);
-
 /// A unique string-based identifier used to spawn a spawnable registered with [`Spawnables`].
 #[derive(Clone, Reflect)]
 pub struct SpawnKey(String);
@@ -241,24 +238,6 @@ impl From<&str> for SpawnKey {
     fn from(name: &str) -> Self {
         Self(name.to_owned())
     }
-}
-
-#[doc(hidden)]
-#[deprecated(note = "use raw static strings")]
-pub const fn spawn_key(name: &'static str) -> &'static str {
-    name
-}
-
-#[doc(hidden)]
-#[deprecated(note = "use raw static strings")]
-#[macro_export]
-macro_rules! spawn_key {
-    ($i:ident) => {
-        const $i: &'static str = $crate::spawn_key(stringify!($i));
-    };
-    ($($i:ident),*) => {
-        $(spawn_key!($i);)*
-    };
 }
 
 /// Trait used to attach children to an [`Entity`] using a [`Bundle`].
