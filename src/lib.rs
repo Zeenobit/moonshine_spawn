@@ -10,7 +10,7 @@ use bevy_utils::HashMap;
 
 pub mod prelude {
     pub use super::{
-        spawn_children, RegisterSpawnable, Spawn, SpawnChildBuilder, SpawnChildren, SpawnCommands,
+        spawn_children, AddSpawnable, Spawn, SpawnChildBuilder, SpawnChildren, SpawnCommands,
         SpawnKey, SpawnOnce, SpawnPlugin, SpawnWorld, Spawnables, WithChildren,
     };
 }
@@ -71,14 +71,14 @@ impl<T: SpawnOnce + Clone> Spawn for T {
 /// # Usage
 /// A spawnable is any thing which implements [`Spawn`]. A spawnable is registered by a unique [`SpawnKey`].
 /// This spawn key may then be used to spawn a new instance of the spawnable.
-pub trait RegisterSpawnable {
-    fn register_spawnable<T: Spawn>(self, key: impl Into<SpawnKey>, spawnable: T) -> SpawnKey
+pub trait AddSpawnable {
+    fn add_spawnable<T: Spawn>(self, key: impl Into<SpawnKey>, spawnable: T) -> SpawnKey
     where
         T: 'static + Send + Sync;
 }
 
-impl RegisterSpawnable for &mut App {
-    fn register_spawnable<T: Spawn>(self, key: impl Into<SpawnKey>, spawnable: T) -> SpawnKey
+impl AddSpawnable for &mut App {
+    fn add_spawnable<T: Spawn>(self, key: impl Into<SpawnKey>, spawnable: T) -> SpawnKey
     where
         T: 'static + Send + Sync,
     {
@@ -439,7 +439,7 @@ mod tests {
     #[test]
     fn spawn_with_key() {
         let mut app = app();
-        app.register_spawnable("FOO", Foo);
+        app.add_spawnable("FOO", Foo);
         let world = &mut app.world;
         let entity = world.spawn_with_key("FOO").id();
         assert!(world.entity(entity).contains::<Foo>());
@@ -448,7 +448,7 @@ mod tests {
     #[test]
     fn spawn_with_key_deferred() {
         let mut app = app();
-        app.register_spawnable("FOO", Foo);
+        app.add_spawnable("FOO", Foo);
         let entity = {
             let world = &mut app.world;
             world.run_system_once(|mut commands: Commands| commands.spawn_with_key("FOO").id())
@@ -495,7 +495,7 @@ mod tests {
     #[test]
     fn spawn_bundle_with_children_with_key() {
         let mut app = app();
-        app.register_spawnable("BAR", Bar);
+        app.add_spawnable("BAR", Bar);
         let world = &mut app.world;
         let entity = world
             .spawn_with(Foo.with_children(|foo| {
@@ -510,7 +510,7 @@ mod tests {
     #[test]
     fn spawn_bundle_with_children_with_key_deferred() {
         let mut app = app();
-        app.register_spawnable("BAR", Bar);
+        app.add_spawnable("BAR", Bar);
         let entity = {
             let world = &mut app.world;
             world.run_system_once(|mut commands: Commands| {

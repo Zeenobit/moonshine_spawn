@@ -72,7 +72,7 @@ impl ChickenBundle {
 fn register_chicken(app: &mut App) {
     // Register `ChickenBundle` as a spawnable with the key "Chicken"
     // Each spawnable must have a unique key!
-    app.register_spawnable("Chicken", ChickenBundle::new());
+    app.add_spawnable("Chicken", ChickenBundle::new());
 }
 
 fn spawn_chicken_with_key(commands: &mut Commands) -> Entity {
@@ -178,12 +178,12 @@ fn chicken() -> impl Bundle {
 
 Spawn keys are a way to reference a spawnable by a unique string.
 
-These keys must be unique within the scope of a `World` and are registered using the `RegisterSpawnable` extension trait.
+These keys must be unique within the scope of a `World` and are registered using the `AddSpawnable` extension trait.
 
 Use this to register your spawnables during app initialization:
 
 ```rust
-app.register_spawnable("Chicken", chicken());
+app.add_spawnable("Chicken", chicken());
 ```
 
 You can then spawn a spawnable using a spawn key at runtime, either using `Commands`, `&mut World`:
