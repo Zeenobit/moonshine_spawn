@@ -72,7 +72,7 @@ impl<T: SpawnOnce + Clone> Spawn for T {
 /// A spawnable is any thing which implements [`Spawn`]. A spawnable is registered by a unique [`SpawnKey`].
 /// This spawn key may then be used to spawn a new instance of the spawnable.
 pub trait AddSpawnable {
-    fn add_spawnable<T: Spawn>(self, key: impl Into<SpawnKey>, spawnable: T) -> SpawnKey
+    fn add_spawnable<T: Spawn>(self, key: impl Into<SpawnKey>, _: T) -> SpawnKey
     where
         T: 'static + Send + Sync;
 }
