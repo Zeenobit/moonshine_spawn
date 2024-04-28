@@ -3,6 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
+use bevy_ecs::schedule::SystemConfigs;
 use bevy_ecs::system::EntityCommands;
 use bevy_hierarchy::BuildWorldChildren;
 use bevy_reflect::prelude::*;
@@ -271,7 +272,7 @@ impl<T: Bundle> WithChildren for T {
     }
 }
 
-/// A [`Component`] which stores a list of spawnables to spawn as children of its entity.
+/// A [`Component`] which stores a list of spawnables to spawn as children of its [`Entity`].
 #[derive(Component)]
 #[component(storage = "SparseSet")]
 pub struct SpawnChildren(Vec<Box<dyn SpawnableOnce>>);
@@ -396,6 +397,54 @@ fn invoke_spawn_children(world: &mut World) {
             SpawnChildren::invoke(world, entity, |child| entities.push(child));
         }
     }
+}
+
+/// Returns a [`SystemConfigs`] which immediately spawns all pending [`SpawnChildren`] requests.
+///
+/// # Usage
+/// Typically, the spawn system spawns children automatically during [`First`] schedule.
+/// In some cases, however, it may be necessary to forcibly spawn children due to ordering issues.
+///
+/// # Example
+/// ```
+/// use bevy::prelude::*;
+/// use moonshine_spawn::{prelude::*, force_spawn_children};
+///
+/// #[derive(Component)]
+/// struct Bar;
+///
+/// #[derive(Bundle)]
+/// struct Foo {
+///     children: SpawnChildren,
+/// }
+///
+/// impl Foo {
+///     fn new() -> Self {
+///         Self {
+///             children: spawn_children(|parent| {
+///                 parent.spawn(Bar);
+///             })
+///         }
+///     }
+/// }
+///
+/// fn setup(mut commands: Commands) {
+///     commands.spawn(Foo::new());
+/// }
+///
+/// fn post_setup(bar: Query<&Bar>) {
+///     let _ = bar.single();
+///     // ...
+/// }
+///
+/// App::new()
+///     .add_plugins((MinimalPlugins, SpawnPlugin))
+///     // Without `force_spawn_children()`, `post_setup` would panic!
+///     .add_systems(Startup, (setup, force_spawn_children(), post_setup).chain())
+///     .update();
+/// ```
+pub fn force_spawn_children() -> SystemConfigs {
+    invoke_spawn_children.run_if(should_spawn_children)
 }
 
 #[cfg(test)]
