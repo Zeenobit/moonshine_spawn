@@ -17,19 +17,14 @@ use bevy::prelude::*;
 
 fn spawn_chicken(commands: &mut Commands) -> Entity {
     // Spawn logic is spread between this function and the bundle
-    commands.spawn(ChickenBundle::new()).with_children(|chicken| {
-        chicken.spawn(ChickenHead).with_children(|head| {
-            head.spawn(ChickenBody).with_children(|body| {
-                body.spawn(ChickenLegs)
-            });
-        });
+    commands.spawn(ChickenBundle { /* Components */ }).with_children(|chicken| {
+        // Children
     })
     .id()
 }
 
 #[derive(Bundle)]
 struct ChickenBundle {
-    chicken: Chicken,
     // ...
 }
 ```
@@ -58,32 +53,15 @@ let chicken = app.world.spawn_with_key(chicken_key); // .spawn_with_key("chicken
 struct Chicken;
 
 impl Spawn for Chicken {
-    // Caller does not need to know about `ChickenBundle`:
-    type Output = ChickenBundle;
+    type Output = (Chicken, SpawnChildren);
 
+    // Spawn logic is now unified:
     fn spawn(&self, world: &World, entity: Entity) -> Self::Output {
-        ChickenBundle::new()
-    }
-}
-
-#[derive(Bundle)]
-struct ChickenBundle {
-    chicken: Chicken,
-    children: SpawnChildren,
-}
-
-impl ChickenBundle {
-    fn new() -> Self {
-        Self {
-            chicken: Chicken,
-            children: spawn_children(|chicken| {
-                chicken.spawn(ChickenHead.with_children(|head| {
-                    head.spawn(ChickenBody.with_children(|body| {
-                        body.spawn(ChickenLegs)
-                    }));
-                }));
-            })
-        }
+        // Components
+        (Chicken,
+        spawn_children(|chicken| {
+            // Children
+        }))
     }
 }
 ```
@@ -124,10 +102,10 @@ struct DefaultChickenName(Name);
 
 struct Egg;
 
-impl Spawn for Egg {
+impl SpawnOnce for Egg {
     type Output = ChickenBundle;
 
-    fn spawn(&self, world: &World, entity: Entity) -> Self::Output {
+    fn spawn_once(self, world: &World, entity: Entity) -> Self::Output {
         let DefaultChickenName(name) = world.resource::<DefaultChickenName>();
         ChickenBundle::new(name.clone())
     }
@@ -168,7 +146,7 @@ use moonshine_spawn::prelude::*;
 #[derive(Component)]
 struct Chicken;
 
-fn chicken() -> impl Spawn {
+fn chicken() -> impl SpawnOnce {
     Chicken.with_children(|chicken| {
         // ...
     })
@@ -187,7 +165,10 @@ struct ChickenBundle {
     children: SpawnChildren,
 }
 
-fn chicken() -> impl Spawn {
+#[derive(Component)]
+struct Chicken;
+
+fn chicken() -> impl SpawnOnce {
     ChickenBundle {
         chicken: Chicken,
         children: spawn_children(|chicken| {
@@ -217,8 +198,8 @@ commands.spawn_with_key("chicken");
 
 You may also use spawn keys when spawning children of a bundle:
 
-```rust
-fn chicken() -> impl Bundle {
+```rust,ignore
+fn chicken() -> impl SpawnOnce {
     ChickenBundle {
         chicken: Chicken,
         children: spawn_children(|chicken| {
@@ -248,7 +229,7 @@ fn spawn_chicken(mut commands: Commands) {
 }
 
 // This system depends on children of `Chicken`:
-fn update_chicken_head(query: Query<(Entity, &Chicken, &Children)>, head: Query<&mut ChickenHead>) {
+fn update_chicken_head(query: Query<(Entity, &Chicken, &Children)>, mut head: Query<&mut ChickenHead>) {
     for (entity, chicken, children) in query.iter() {
         if let Ok(mut head) = head.get_mut(children[0]) {
             // ...
@@ -259,7 +240,7 @@ fn update_chicken_head(query: Query<(Entity, &Chicken, &Children)>, head: Query<
 #[derive(Component)]
 struct Chicken;
 
-fn chicken() -> impl Spawn {
+fn chicken() -> impl SpawnOnce {
     Chicken.with_children(|chicken| {
         chicken.spawn(ChickenHead);
     })
@@ -268,11 +249,13 @@ fn chicken() -> impl Spawn {
 #[derive(Component)]
 struct ChickenHead;
 
-let mut app = App::new()
-    .add_plugins((DefaultPlugins, SpawnPlugin))
+let mut app = App::new();
+
+app.add_plugins((DefaultPlugins, SpawnPlugin))
+    .add_systems(Startup, spawn_chicken)
     // Without `force_spawn_children`, chicken head would only be updated on the second update cycle after spawn.
     // With `force_spawn_children`, chicken head would be updated in the same update cycle.
-    .add_systems(Startup, (spawn_chicken, force_spawn_children).chain())
+    .add_systems(Startup, force_spawn_children())
     .add_systems(Update, update_chicken_head);
 ```
 
