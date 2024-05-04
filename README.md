@@ -49,29 +49,33 @@ let mut app = App::new();
 app.add_plugins((DefaultPlugins, SpawnPlugin));
 
 // Register spawnables during initialization:
-let chicken_key: SpawnKey = app.add_spawnable("chicken", chicken("Some Chicken"));
+let chicken_key: SpawnKey = app.add_spawnable("chicken", Chicken);
 
 // Spawn a spawnable with a key:
 let chicken = app.world.spawn_with_key(chicken_key); // .spawn_with_key("chicken") also works!
 
-// Caller does not need to know about `ChickenBundle`:
-fn chicken(name: impl Into<Name>) -> impl Spawn {
-    ChickenBundle::new()
+#[derive(Component)]
+struct Chicken;
+
+impl Spawn for Chicken {
+    // Caller does not need to know about `ChickenBundle`:
+    type Output = ChickenBundle;
+
+    fn spawn(&self, world: &World, entity: Entity) -> Self::Output {
+        ChickenBundle::new()
+    }
 }
 
 #[derive(Bundle)]
 struct ChickenBundle {
     chicken: Chicken,
-    name: Name,
     children: SpawnChildren,
 }
 
 impl ChickenBundle {
-    // Let's make a chicken!
-    fn new(name: impl Into<Name>) -> Self {
+    fn new() -> Self {
         Self {
             chicken: Chicken,
-            name: name.into(),
             children: spawn_children(|chicken| {
                 chicken.spawn(ChickenHead.with_children(|head| {
                     head.spawn(ChickenBody.with_children(|body| {
@@ -148,7 +152,7 @@ impl ChickenBundle {
 #[derive(Component)]
 struct Chicken;
 
-fn spawn_from_egg(egg: Egg) -> Entity {
+fn open_egg(egg: Egg, commands: &mut Commands) -> Entity {
     commands.spawn_with(egg).id()
 }
 ```
@@ -164,7 +168,7 @@ use moonshine_spawn::prelude::*;
 #[derive(Component)]
 struct Chicken;
 
-fn chicken() -> impl Bundle {
+fn chicken() -> impl Spawn {
     Chicken.with_children(|chicken| {
         // ...
     })
@@ -174,13 +178,16 @@ fn chicken() -> impl Bundle {
 Or use the `SpawnChildren` component and the `spawn_children` function:
 
 ```rust
+use bevy::prelude::*;
+use moonshine_spawn::prelude::*;
+
 #[derive(Bundle)]
 struct ChickenBundle {
     chicken: Chicken,
     children: SpawnChildren,
 }
 
-fn chicken() -> impl Bundle {
+fn chicken() -> impl Spawn {
     ChickenBundle {
         chicken: Chicken,
         children: spawn_children(|chicken| {
@@ -221,8 +228,65 @@ fn chicken() -> impl Bundle {
 }
 ```
 
+### `force_spawn_children`
+
+This crate works by running a system which invokes any [`SpawnChildren`] [`Component`] during the [`First`] schedule.
+
+Sometimes it may be necessary to spawn children manually before the [`First`] schedule runs due to system dependencies.
+
+In such cases, you may use `force_spawn_children` to manually invoke these components:
+
+```rust
+use bevy::prelude::*;
+use moonshine_spawn::{prelude::*, force_spawn_children};
+
+let mut app = App::new();
+
+// This system spawns a chicken during setup:
+fn spawn_chicken(mut commands: Commands) {
+    commands.spawn_with(chicken());
+}
+
+// This system depends on children of `Chicken`:
+fn update_chicken_head(query: Query<(Entity, &Chicken, &Children)>, head: Query<&mut ChickenHead>) {
+    for (entity, chicken, children) in query.iter() {
+        if let Ok(mut head) = head.get_mut(children[0]) {
+            // ...
+        }
+    }
+}
+
+#[derive(Component)]
+struct Chicken;
+
+fn chicken() -> impl Spawn {
+    Chicken.with_children(|chicken| {
+        chicken.spawn(ChickenHead);
+    })
+}
+
+#[derive(Component)]
+struct ChickenHead;
+
+let mut app = App::new()
+    .add_plugins((DefaultPlugins, SpawnPlugin))
+    // Without `force_spawn_children`, chicken head would only be updated on the second update cycle after spawn.
+    // With `force_spawn_children`, chicken head would be updated in the same update cycle.
+    .add_systems(Startup, (spawn_chicken, force_spawn_children).chain())
+    .add_systems(Update, update_chicken_head);
+```
+
+## Support
+
+Please [post an issue](https://github.com/Zeenobit/moonshine_spawn/issues/new) for any bugs, questions, or suggestions.
+
+You may also contact me on the official [Bevy Discord](https://discord.gg/bevy) server as **@Zeenobit**.
+
 [`World`]:(https://docs.rs/bevy/latest/bevy/ecs/world/struct.World.html)
+[`Component`]:(https://docs.rs/bevy/latest/bevy/ecs/component/trait.Component.html)
+[`First`]:(https://docs.rs/bevy/latest/bevy/app/struct.First.html)
 [`Spawn`]:(https://docs.rs/moonshine-spawn/latest/moonshine_spawn/trait.Spawn.html)
 [`SpawnOnce`]:(https://docs.rs/moonshine-spawn/latest/moonshine_spawn/trait.SpawnOnce.html)
 [`SpawnKey`]:(https://docs.rs/moonshine-spawn/latest/moonshine_spawn/struct.SpawnKey.html)
 [`AddSpawnable`]:(https://docs.rs/moonshine-spawn/latest/moonshine_spawn/trait.AddSpawnable.html)
+[`SpawnChildren`]:(https://docs.rs/moonshine-spawn/latest/moonshine_spawn/struct.SpawnChildren.html)
