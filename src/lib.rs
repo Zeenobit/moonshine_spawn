@@ -75,15 +75,15 @@ impl<T: SpawnOnce + Clone> Spawn for T {
 /// A spawnable is any thing which implements [`Spawn`]. A spawnable is registered by a unique [`SpawnKey`].
 /// This spawn key may then be used to spawn a new instance of the spawnable.
 pub trait AddSpawnable {
-    fn add_spawnable<T: Spawn>(self, key: impl Into<SpawnKey>, _: T) -> SpawnKey
+    fn add_spawnable<T>(self, key: impl Into<SpawnKey>, _: T) -> SpawnKey
     where
-        T: 'static + Send + Sync;
+        T: 'static + Spawn + Send + Sync;
 }
 
 impl AddSpawnable for &mut App {
-    fn add_spawnable<T: Spawn>(self, key: impl Into<SpawnKey>, spawnable: T) -> SpawnKey
+    fn add_spawnable<T>(self, key: impl Into<SpawnKey>, spawnable: T) -> SpawnKey
     where
-        T: 'static + Send + Sync,
+        T: 'static + Spawn + Send + Sync,
     {
         self.world
             .resource_mut::<Spawnables>()
@@ -93,17 +93,17 @@ impl AddSpawnable for &mut App {
 
 /// Trait used to spawn spawnables either directly or via a [`SpawnKey`] using [`Commands`].
 pub trait SpawnCommands {
-    fn spawn_with<T: SpawnOnce>(&mut self, spawnable: T) -> EntityCommands<'_>
+    fn spawn_with<T>(&mut self, spawnable: T) -> EntityCommands<'_>
     where
-        T: 'static + Send + Sync;
+        T: 'static + SpawnOnce + Send + Sync;
 
     fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'_>;
 }
 
 impl SpawnCommands for Commands<'_, '_> {
-    fn spawn_with<T: SpawnOnce>(&mut self, spawnable: T) -> EntityCommands<'_>
+    fn spawn_with<T>(&mut self, spawnable: T) -> EntityCommands<'_>
     where
-        T: 'static + Send + Sync,
+        T: 'static + SpawnOnce + Send + Sync,
     {
         let entity = self.spawn_empty().id();
         self.add(move |world: &mut World| {
@@ -130,17 +130,17 @@ impl SpawnCommands for Commands<'_, '_> {
 
 /// Trait used to spawn spawnables either directly or via a [`SpawnKey`] using [`World`].
 pub trait SpawnWorld {
-    fn spawn_with<T: SpawnOnce>(&mut self, spawnable: T) -> EntityWorldMut
+    fn spawn_with<T>(&mut self, spawnable: T) -> EntityWorldMut
     where
-        T: 'static + Send + Sync;
+        T: 'static + SpawnOnce + Send + Sync;
 
     fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityWorldMut;
 }
 
 impl SpawnWorld for World {
-    fn spawn_with<T: SpawnOnce>(&mut self, spawnable: T) -> EntityWorldMut
+    fn spawn_with<T>(&mut self, spawnable: T) -> EntityWorldMut
     where
-        T: 'static + Send + Sync,
+        T: 'static + SpawnOnce + Send + Sync,
     {
         let entity = self.spawn_empty().id();
         let bundle = spawnable.spawn_once(self, entity);
@@ -172,9 +172,9 @@ impl Spawnables {
     ///
     /// # Warning
     /// This function will panic if the given key is already registered.
-    pub fn register<T: Spawn>(&mut self, key: impl Into<SpawnKey>, spawnable: T) -> SpawnKey
+    pub fn register<T>(&mut self, key: impl Into<SpawnKey>, spawnable: T) -> SpawnKey
     where
-        T: 'static + Send + Sync,
+        T: 'static + Spawn + Send + Sync,
     {
         let key = key.into();
         let previous = self.0.insert(key.clone(), Box::new(spawnable));
@@ -284,9 +284,9 @@ impl SpawnChildren {
         Self(Vec::new())
     }
 
-    fn add_child<T: SpawnOnce>(&mut self, spawnable: T)
+    fn add_child<T>(&mut self, spawnable: T)
     where
-        T: 'static + Send + Sync,
+        T: 'static + SpawnOnce + Send + Sync,
     {
         self.0.push(Box::new(spawnable));
     }
@@ -324,9 +324,9 @@ impl Default for SpawnChildren {
 pub struct SpawnChildBuilder<'a>(&'a mut SpawnChildren);
 
 impl SpawnChildBuilder<'_> {
-    pub fn spawn<T: SpawnOnce>(&mut self, spawnable: T) -> &mut Self
+    pub fn spawn<T>(&mut self, spawnable: T) -> &mut Self
     where
-        T: 'static + Send + Sync,
+        T: 'static + SpawnOnce + Send + Sync,
     {
         self.0.add_child(spawnable);
         self
