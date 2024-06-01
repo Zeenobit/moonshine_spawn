@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use std::fmt;
+use std::fmt::{Debug, Formatter, Result as FormatResult};
 use std::hash::{Hash, Hasher};
 
 use bevy_app::prelude::*;
@@ -43,7 +43,7 @@ pub trait SpawnOnce {
 impl<T: Bundle> SpawnOnce for T {
     type Output = Self;
 
-    fn spawn_once(self, _world: &World, _entity: Entity) -> Self::Output {
+    fn spawn_once(self, _: &World, _: Entity) -> Self::Output {
         self
     }
 }
@@ -225,8 +225,8 @@ impl Hash for SpawnKey {
     }
 }
 
-impl fmt::Debug for SpawnKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Debug for SpawnKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FormatResult {
         f.debug_tuple("SpawnKey").field(&self.name()).finish()
     }
 }
@@ -292,7 +292,7 @@ impl SpawnChildren {
     }
 
     fn add_child_with_key(&mut self, key: SpawnKey) {
-        self.0.push(Box::new(SpawnKeySpawnable(key)));
+        self.0.push(Box::new(key));
     }
 
     fn invoke(world: &mut World, entity: Entity, mut child_spawned: impl FnMut(Entity)) {
@@ -366,16 +366,13 @@ where
     }
 }
 
-struct SpawnKeySpawnable(SpawnKey);
-
-impl SpawnableOnce for SpawnKeySpawnable {
+impl SpawnableOnce for SpawnKey {
     fn spawn_once(self: Box<Self>, world: &mut World, entity: Entity) {
-        let Self(key) = *self;
-        if let Some(spawnable) = world.resource_mut::<Spawnables>().take(&key) {
+        if let Some(spawnable) = world.resource_mut::<Spawnables>().take(&self) {
             spawnable.spawn(world, entity);
-            world.resource_mut::<Spawnables>().insert(key, spawnable);
+            world.resource_mut::<Spawnables>().insert(*self, spawnable);
         } else {
-            panic!("invalid spawn key: {key:?}");
+            panic!("invalid spawn key: {self:?}");
         }
     }
 }
