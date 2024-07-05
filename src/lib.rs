@@ -85,7 +85,7 @@ impl AddSpawnable for &mut App {
     where
         T: 'static + Spawn + Send + Sync,
     {
-        self.world
+        self.world_mut()
             .resource_mut::<Spawnables>()
             .register(key, spawnable)
     }
@@ -467,7 +467,7 @@ mod tests {
     #[test]
     fn spawn_bundle() {
         let mut app = app();
-        let world = &mut app.world;
+        let world = app.world_mut();
         let entity = world.spawn_with(Foo).id();
         assert!(world.entity(entity).contains::<Foo>());
     }
@@ -476,11 +476,11 @@ mod tests {
     fn spawn_bundle_deferred() {
         let mut app = app();
         let entity = {
-            let world = &mut app.world;
+            let world = app.world_mut();
             world.run_system_once(|mut commands: Commands| commands.spawn_with(Foo).id())
         };
         app.update();
-        let world = app.world;
+        let world = app.world();
         assert!(world.entity(entity).contains::<Foo>());
     }
 
@@ -488,7 +488,7 @@ mod tests {
     fn spawn_with_key() {
         let mut app = app();
         app.add_spawnable("FOO", Foo);
-        let world = &mut app.world;
+        let world = app.world_mut();
         let entity = world.spawn_with_key("FOO").id();
         assert!(world.entity(entity).contains::<Foo>());
     }
@@ -498,18 +498,18 @@ mod tests {
         let mut app = app();
         app.add_spawnable("FOO", Foo);
         let entity = {
-            let world = &mut app.world;
+            let world = app.world_mut();
             world.run_system_once(|mut commands: Commands| commands.spawn_with_key("FOO").id())
         };
         app.update();
-        let world = app.world;
+        let world = app.world();
         assert!(world.entity(entity).contains::<Foo>());
     }
 
     #[test]
     fn spawn_bundle_with_children() {
         let mut app = app();
-        let world = &mut app.world;
+        let world = app.world_mut();
         let entity = world
             .spawn_with(Foo.with_children(|foo| {
                 foo.spawn(Bar);
@@ -524,7 +524,7 @@ mod tests {
     fn spawn_bundle_with_children_deferred() {
         let mut app = app();
         let entity = {
-            let world = &mut app.world;
+            let world = app.world_mut();
             world.run_system_once(|mut commands: Commands| {
                 commands
                     .spawn_with(Foo.with_children(|foo| {
@@ -534,7 +534,7 @@ mod tests {
             })
         };
         app.update();
-        let world = app.world;
+        let world = app.world();
         let children = world.entity(entity).get::<Children>().unwrap();
         let child = children.iter().copied().next().unwrap();
         assert!(world.entity(child).contains::<Bar>());
@@ -544,7 +544,7 @@ mod tests {
     fn spawn_bundle_with_children_with_key() {
         let mut app = app();
         app.add_spawnable("BAR", Bar);
-        let world = &mut app.world;
+        let world = app.world_mut();
         let entity = world
             .spawn_with(Foo.with_children(|foo| {
                 foo.spawn_with_key("BAR");
@@ -560,7 +560,7 @@ mod tests {
         let mut app = app();
         app.add_spawnable("BAR", Bar);
         let entity = {
-            let world = &mut app.world;
+            let world = app.world_mut();
             world.run_system_once(|mut commands: Commands| {
                 commands
                     .spawn_with(Foo.with_children(|foo| {
@@ -570,7 +570,7 @@ mod tests {
             })
         };
         app.update();
-        let world = app.world;
+        let world = app.world();
         let children = world.entity(entity).get::<Children>().unwrap();
         let child = children.iter().copied().next().unwrap();
         assert!(world.entity(child).contains::<Bar>());

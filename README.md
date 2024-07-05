@@ -47,7 +47,7 @@ app.add_plugins((DefaultPlugins, SpawnPlugin));
 let chicken_key: SpawnKey = app.add_spawnable("chicken", Chicken);
 
 // Spawn a spawnable with a key:
-let chicken = app.world.spawn_with_key(chicken_key); // .spawn_with_key("chicken") also works!
+let chicken = app.world_mut().spawn_with_key(chicken_key); // .spawn_with_key("chicken") also works!
 
 #[derive(Component)]
 struct Chicken;

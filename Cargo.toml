@@ -1,6 +1,6 @@
 [package]
 name = "moonshine-spawn"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 license = "MIT"
 description = "Collection of tools for spawning entities in Bevy"
@@ -11,11 +11,11 @@ homepage = "https://github.com/Zeenobit/moonshine_spawn"
 repository = "https://github.com/Zeenobit/moonshine_spawn"
 
 [dependencies]
-bevy_app = "0.13.*"
-bevy_ecs = "0.13.*"
-bevy_reflect = "0.13.*"
-bevy_utils = "0.13.*"
-bevy_hierarchy = "0.13.*"
+bevy_app = "0.14.*"
+bevy_ecs = "0.14.*"
+bevy_reflect = "0.14.*"
+bevy_utils = "0.14.*"
+bevy_hierarchy = "0.14.*"
 
 [dev-dependencies]
-bevy = "0.13.*"
+bevy = "0.14.*"
