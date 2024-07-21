@@ -106,8 +106,7 @@ impl SpawnCommands for Commands<'_, '_> {
     fn spawn_with(&mut self, spawnable: impl Spawn) -> EntityCommands<'_> {
         let entity = self.spawn_empty().id();
         self.add(move |world: &mut World| {
-            let bundle = spawnable.spawn(world, entity);
-            world.entity_mut(entity).insert(bundle);
+            Spawnable::spawn(&spawnable, world, entity);
         });
         self.entity(entity)
     }
@@ -115,21 +114,16 @@ impl SpawnCommands for Commands<'_, '_> {
     fn spawn_once_with(&mut self, spawnable: impl SpawnOnce) -> EntityCommands<'_> {
         let entity = self.spawn_empty().id();
         self.add(move |world: &mut World| {
-            let bundle = spawnable.spawn_once(world, entity);
-            world.entity_mut(entity).insert(bundle);
+            SpawnableOnce::spawn_once(spawnable, world, entity);
         });
         self.entity(entity)
     }
 
     fn spawn_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'_> {
-        let key = key.into();
+        let key: SpawnKey = key.into();
         let entity = self.spawn_empty().id();
         self.add(move |world: &mut World| {
-            if let Some(spawnable) = world.resource::<Spawnables>().fetch(&key) {
-                spawnable.spawn(world, entity);
-            } else {
-                panic!("invalid spawn key: {key:?}");
-            }
+            key.spawn_once(world, entity);
         });
         self.entity(entity)
     }
@@ -142,12 +136,7 @@ impl SpawnCommands for Commands<'_, '_> {
         let key = key.into();
         let entity = self.spawn_empty().id();
         self.add(move |world: &mut World| {
-            if let Some(spawnable) = world.resource::<Spawnables>().fetch(&key) {
-                spawnable.spawn(world, entity);
-                world.entity_mut(entity).insert(bundle);
-            } else {
-                panic!("invalid spawn key: {key:?}");
-            }
+            SpawnKeyWith(key, bundle).spawn_once(world, entity);
         });
         self.entity(entity)
     }
@@ -167,42 +156,31 @@ pub trait SpawnWorld {
 impl SpawnWorld for World {
     fn spawn_with(&mut self, spawnable: impl Spawn) -> EntityWorldMut {
         let entity = self.spawn_empty().id();
-        let bundle = spawnable.spawn(self, entity);
-        self.entity_mut(entity).insert(bundle);
+        Spawnable::spawn(&spawnable, self, entity);
         invoke_spawn_children(self);
         self.entity_mut(entity)
     }
 
     fn spawn_once_with(&mut self, spawnable: impl SpawnOnce) -> EntityWorldMut {
         let entity = self.spawn_empty().id();
-        let bundle = spawnable.spawn_once(self, entity);
-        self.entity_mut(entity).insert(bundle);
+        SpawnableOnce::spawn_once(spawnable, self, entity);
         invoke_spawn_children(self);
         self.entity_mut(entity)
     }
 
     fn spawn_key(&mut self, key: impl Into<SpawnKey>) -> EntityWorldMut {
-        let key = key.into();
+        let key: SpawnKey = key.into();
         let entity = self.spawn_empty().id();
-        if let Some(spawnable) = self.resource_mut::<Spawnables>().fetch(&key) {
-            spawnable.spawn(self, entity);
-            invoke_spawn_children(self);
-        } else {
-            panic!("invalid spawn key: {key:?}");
-        }
+        key.spawn_once(self, entity);
+        invoke_spawn_children(self);
         self.entity_mut(entity)
     }
 
     fn spawn_key_with(&mut self, key: impl Into<SpawnKey>, bundle: impl Bundle) -> EntityWorldMut {
         let key = key.into();
         let entity = self.spawn_empty().id();
-        if let Some(spawnable) = self.resource_mut::<Spawnables>().fetch(&key) {
-            spawnable.spawn(self, entity);
-            self.entity_mut(entity).insert(bundle);
-            invoke_spawn_children(self);
-        } else {
-            panic!("invalid spawn key: {key:?}");
-        }
+        SpawnKeyWith(key, bundle).spawn_once(self, entity);
+        invoke_spawn_children(self);
         self.entity_mut(entity)
     }
 }
@@ -335,7 +313,7 @@ impl SpawnChildren {
         if let Some(children) = world.entity_mut(entity).take::<SpawnChildren>() {
             for spawnable in children.0 {
                 let child = world.spawn_empty().id();
-                spawnable.spawn_once(world, child);
+                spawnable.spawn_once_dyn(world, child);
                 child_spawned(child);
                 world.entity_mut(entity).add_child(child);
             }
@@ -388,36 +366,46 @@ impl<T: Spawn> Spawnable for T {
 }
 
 trait SpawnableOnce: 'static + Send + Sync {
-    fn spawn_once(self: Box<Self>, world: &mut World, entity: Entity);
+    fn spawn_once(self, world: &mut World, entity: Entity);
+
+    fn spawn_once_dyn(self: Box<Self>, world: &mut World, entity: Entity);
 }
 
 impl<T: SpawnOnce> SpawnableOnce for T {
-    fn spawn_once(self: Box<Self>, world: &mut World, entity: Entity) {
-        let bundle = (*self).spawn_once(world, entity);
+    fn spawn_once(self, world: &mut World, entity: Entity) {
+        let bundle = self.spawn_once(world, entity);
         world.entity_mut(entity).insert(bundle);
+    }
+
+    fn spawn_once_dyn(self: Box<Self>, world: &mut World, entity: Entity) {
+        SpawnableOnce::spawn_once(*self, world, entity);
     }
 }
 
 impl SpawnableOnce for SpawnKey {
-    fn spawn_once(self: Box<Self>, world: &mut World, entity: Entity) {
-        if let Some(spawnable) = world.resource_mut::<Spawnables>().fetch(&self) {
+    fn spawn_once(self, world: &mut World, entity: Entity) {
+        if let Some(spawnable) = world.resource::<Spawnables>().fetch(&self) {
             spawnable.spawn(world, entity);
         } else {
             panic!("invalid spawn key: {self:?}");
         }
+    }
+
+    fn spawn_once_dyn(self: Box<Self>, world: &mut World, entity: Entity) {
+        SpawnableOnce::spawn_once(*self, world, entity);
     }
 }
 
 struct SpawnKeyWith<T>(SpawnKey, T);
 
 impl<T: Bundle> SpawnableOnce for SpawnKeyWith<T> {
-    fn spawn_once(self: Box<Self>, world: &mut World, entity: Entity) {
-        if let Some(spawnable) = world.resource_mut::<Spawnables>().fetch(&self.0) {
-            spawnable.spawn(world, entity);
-            world.entity_mut(entity).insert(self.1);
-        } else {
-            panic!("invalid spawn key: {:?}", self.0);
-        }
+    fn spawn_once(self, world: &mut World, entity: Entity) {
+        self.0.spawn_once(world, entity);
+        world.entity_mut(entity).insert(self.1);
+    }
+
+    fn spawn_once_dyn(self: Box<Self>, world: &mut World, entity: Entity) {
+        SpawnableOnce::spawn_once(*self, world, entity);
     }
 }
 
