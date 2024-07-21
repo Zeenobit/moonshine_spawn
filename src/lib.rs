@@ -76,16 +76,11 @@ impl<T: SpawnOnce + Clone> Spawn for T {
 /// A spawnable is any thing which implements [`Spawn`]. A spawnable is registered by a unique [`SpawnKey`].
 /// This spawn key may then be used to spawn a new instance of the spawnable.
 pub trait AddSpawnable {
-    fn add_spawnable<T>(self, key: impl Into<SpawnKey>, _: T) -> SpawnKey
-    where
-        T: 'static + Spawn + Send + Sync;
+    fn add_spawnable(self, key: impl Into<SpawnKey>, _: impl Spawn) -> SpawnKey;
 }
 
 impl AddSpawnable for &mut App {
-    fn add_spawnable<T>(self, key: impl Into<SpawnKey>, spawnable: T) -> SpawnKey
-    where
-        T: 'static + Spawn + Send + Sync,
-    {
+    fn add_spawnable(self, key: impl Into<SpawnKey>, spawnable: impl Spawn) -> SpawnKey {
         self.world_mut()
             .resource_mut::<Spawnables>()
             .register(key, spawnable)
@@ -94,7 +89,9 @@ impl AddSpawnable for &mut App {
 
 /// Trait used to spawn spawnables either directly or via a [`SpawnKey`] using [`Commands`].
 pub trait SpawnCommands {
-    fn spawn_with(&mut self, spawnable: impl SpawnOnce) -> EntityCommands<'_>;
+    fn spawn_with(&mut self, _: impl Spawn) -> EntityCommands<'_>;
+
+    fn spawn_once_with(&mut self, _: impl SpawnOnce) -> EntityCommands<'_>;
 
     fn spawn_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'_>;
 
@@ -106,7 +103,16 @@ pub trait SpawnCommands {
 }
 
 impl SpawnCommands for Commands<'_, '_> {
-    fn spawn_with(&mut self, spawnable: impl SpawnOnce) -> EntityCommands<'_> {
+    fn spawn_with(&mut self, spawnable: impl Spawn) -> EntityCommands<'_> {
+        let entity = self.spawn_empty().id();
+        self.add(move |world: &mut World| {
+            let bundle = spawnable.spawn(world, entity);
+            world.entity_mut(entity).insert(bundle);
+        });
+        self.entity(entity)
+    }
+
+    fn spawn_once_with(&mut self, spawnable: impl SpawnOnce) -> EntityCommands<'_> {
         let entity = self.spawn_empty().id();
         self.add(move |world: &mut World| {
             let bundle = spawnable.spawn_once(world, entity);
@@ -119,7 +125,7 @@ impl SpawnCommands for Commands<'_, '_> {
         let key = key.into();
         let entity = self.spawn_empty().id();
         self.add(move |world: &mut World| {
-            if let Some(spawnable) = world.resource_mut::<Spawnables>().fetch(&key) {
+            if let Some(spawnable) = world.resource::<Spawnables>().fetch(&key) {
                 spawnable.spawn(world, entity);
             } else {
                 panic!("invalid spawn key: {key:?}");
@@ -136,7 +142,7 @@ impl SpawnCommands for Commands<'_, '_> {
         let key = key.into();
         let entity = self.spawn_empty().id();
         self.add(move |world: &mut World| {
-            if let Some(spawnable) = world.resource_mut::<Spawnables>().fetch(&key) {
+            if let Some(spawnable) = world.resource::<Spawnables>().fetch(&key) {
                 spawnable.spawn(world, entity);
                 world.entity_mut(entity).insert(bundle);
             } else {
@@ -149,26 +155,25 @@ impl SpawnCommands for Commands<'_, '_> {
 
 /// Trait used to spawn spawnables either directly or via a [`SpawnKey`] using [`World`].
 pub trait SpawnWorld {
-    fn spawn_with<T>(&mut self, spawnable: T) -> EntityWorldMut
-    where
-        T: 'static + SpawnOnce + Send + Sync;
+    fn spawn_with(&mut self, _: impl Spawn) -> EntityWorldMut;
 
-    #[deprecated(note = "use `spawn_key` instead")]
-    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityWorldMut {
-        self.spawn_key(key)
-    }
+    fn spawn_once_with(&mut self, _: impl SpawnOnce) -> EntityWorldMut;
 
     fn spawn_key(&mut self, key: impl Into<SpawnKey>) -> EntityWorldMut;
 
-    fn spawn_key_bundle(&mut self, key: impl Into<SpawnKey>, bundle: impl Bundle)
-        -> EntityWorldMut;
+    fn spawn_key_with(&mut self, key: impl Into<SpawnKey>, bundle: impl Bundle) -> EntityWorldMut;
 }
 
 impl SpawnWorld for World {
-    fn spawn_with<T>(&mut self, spawnable: T) -> EntityWorldMut
-    where
-        T: 'static + SpawnOnce + Send + Sync,
-    {
+    fn spawn_with(&mut self, spawnable: impl Spawn) -> EntityWorldMut {
+        let entity = self.spawn_empty().id();
+        let bundle = spawnable.spawn(self, entity);
+        self.entity_mut(entity).insert(bundle);
+        invoke_spawn_children(self);
+        self.entity_mut(entity)
+    }
+
+    fn spawn_once_with(&mut self, spawnable: impl SpawnOnce) -> EntityWorldMut {
         let entity = self.spawn_empty().id();
         let bundle = spawnable.spawn_once(self, entity);
         self.entity_mut(entity).insert(bundle);
@@ -188,11 +193,7 @@ impl SpawnWorld for World {
         self.entity_mut(entity)
     }
 
-    fn spawn_key_bundle(
-        &mut self,
-        key: impl Into<SpawnKey>,
-        bundle: impl Bundle,
-    ) -> EntityWorldMut {
+    fn spawn_key_with(&mut self, key: impl Into<SpawnKey>, bundle: impl Bundle) -> EntityWorldMut {
         let key = key.into();
         let entity = self.spawn_empty().id();
         if let Some(spawnable) = self.resource_mut::<Spawnables>().fetch(&key) {
@@ -230,7 +231,7 @@ impl Spawnables {
         self.0.keys()
     }
 
-    fn fetch(&mut self, key: &SpawnKey) -> Option<Arc<dyn Spawnable>> {
+    fn fetch(&self, key: &SpawnKey) -> Option<Arc<dyn Spawnable>> {
         self.0.get(key).cloned()
     }
 }
@@ -378,7 +379,7 @@ impl SpawnChildBuilder<'_> {
     }
 
     pub fn spawn_key_bundle(&mut self, key: impl Into<SpawnKey>, bundle: impl Bundle) -> &mut Self {
-        self.0.add_child(SpawnKeyBundle(key.into(), bundle));
+        self.0.add_child(SpawnKeyWith(key.into(), bundle));
         self
     }
 }
@@ -415,9 +416,9 @@ impl SpawnableOnce for SpawnKey {
     }
 }
 
-struct SpawnKeyBundle<T>(SpawnKey, T);
+struct SpawnKeyWith<T>(SpawnKey, T);
 
-impl<T: Bundle> SpawnableOnce for SpawnKeyBundle<T> {
+impl<T: Bundle> SpawnableOnce for SpawnKeyWith<T> {
     fn spawn_once(self: Box<Self>, world: &mut World, entity: Entity) {
         if let Some(spawnable) = world.resource_mut::<Spawnables>().fetch(&self.0) {
             spawnable.spawn(world, entity);
@@ -519,7 +520,7 @@ mod tests {
     fn spawn_bundle() {
         let mut app = app();
         let world = app.world_mut();
-        let entity = world.spawn_with(Foo).id();
+        let entity = world.spawn_once_with(Foo).id();
         assert!(world.entity(entity).contains::<Foo>());
     }
 
@@ -528,7 +529,7 @@ mod tests {
         let mut app = app();
         let entity = {
             let world = app.world_mut();
-            world.run_system_once(|mut commands: Commands| commands.spawn_with(Foo).id())
+            world.run_system_once(|mut commands: Commands| commands.spawn_once_with(Foo).id())
         };
         app.update();
         let world = app.world();
@@ -562,7 +563,7 @@ mod tests {
         let mut app = app();
         let world = app.world_mut();
         let entity = world
-            .spawn_with(Foo.with_children(|foo| {
+            .spawn_once_with(Foo.with_children(|foo| {
                 foo.spawn(Bar);
             }))
             .id();
@@ -578,7 +579,7 @@ mod tests {
             let world = app.world_mut();
             world.run_system_once(|mut commands: Commands| {
                 commands
-                    .spawn_with(Foo.with_children(|foo| {
+                    .spawn_once_with(Foo.with_children(|foo| {
                         foo.spawn(Bar);
                     }))
                     .id()
@@ -597,7 +598,7 @@ mod tests {
         app.add_spawnable("BAR", Bar);
         let world = app.world_mut();
         let entity = world
-            .spawn_with(Foo.with_children(|foo| {
+            .spawn_once_with(Foo.with_children(|foo| {
                 foo.spawn_key("BAR");
             }))
             .id();
@@ -614,7 +615,7 @@ mod tests {
             let world = app.world_mut();
             world.run_system_once(|mut commands: Commands| {
                 commands
-                    .spawn_with(Foo.with_children(|foo| {
+                    .spawn_once_with(Foo.with_children(|foo| {
                         foo.spawn_key("BAR");
                     }))
                     .id()
