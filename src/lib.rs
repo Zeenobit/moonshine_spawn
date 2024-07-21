@@ -97,9 +97,14 @@ pub trait SpawnCommands {
     where
         T: 'static + SpawnOnce + Send + Sync;
 
-    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'_>;
+    #[deprecated(note = "use `spawn_key` instead")]
+    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'_> {
+        self.spawn_key(key)
+    }
 
-    fn spawn_with_key_bundle(
+    fn spawn_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'_>;
+
+    fn spawn_key_bundle(
         &mut self,
         key: impl Into<SpawnKey>,
         bundle: impl Bundle,
@@ -119,7 +124,7 @@ impl SpawnCommands for Commands<'_, '_> {
         self.entity(entity)
     }
 
-    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'_> {
+    fn spawn_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'_> {
         let key = key.into();
         let entity = self.spawn_empty().id();
         self.add(move |world: &mut World| {
@@ -133,7 +138,7 @@ impl SpawnCommands for Commands<'_, '_> {
         self.entity(entity)
     }
 
-    fn spawn_with_key_bundle(
+    fn spawn_key_bundle(
         &mut self,
         key: impl Into<SpawnKey>,
         bundle: impl Bundle,
@@ -159,13 +164,15 @@ pub trait SpawnWorld {
     where
         T: 'static + SpawnOnce + Send + Sync;
 
-    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityWorldMut;
+    #[deprecated(note = "use `spawn_key` instead")]
+    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityWorldMut {
+        self.spawn_key(key)
+    }
 
-    fn spawn_with_key_bundle(
-        &mut self,
-        key: impl Into<SpawnKey>,
-        bundle: impl Bundle,
-    ) -> EntityWorldMut;
+    fn spawn_key(&mut self, key: impl Into<SpawnKey>) -> EntityWorldMut;
+
+    fn spawn_key_bundle(&mut self, key: impl Into<SpawnKey>, bundle: impl Bundle)
+        -> EntityWorldMut;
 }
 
 impl SpawnWorld for World {
@@ -180,7 +187,7 @@ impl SpawnWorld for World {
         self.entity_mut(entity)
     }
 
-    fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityWorldMut {
+    fn spawn_key(&mut self, key: impl Into<SpawnKey>) -> EntityWorldMut {
         let key = key.into();
         let entity = self.spawn_empty().id();
         if let Some(spawnable) = self.resource_mut::<Spawnables>().take(&key) {
@@ -193,7 +200,7 @@ impl SpawnWorld for World {
         self.entity_mut(entity)
     }
 
-    fn spawn_with_key_bundle(
+    fn spawn_key_bundle(
         &mut self,
         key: impl Into<SpawnKey>,
         bundle: impl Bundle,
@@ -378,16 +385,17 @@ impl SpawnChildBuilder<'_> {
         self
     }
 
+    #[deprecated(note = "use `spawn_key` instead")]
     pub fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> &mut Self {
+        self.spawn_key(key)
+    }
+
+    pub fn spawn_key(&mut self, key: impl Into<SpawnKey>) -> &mut Self {
         self.0.add_child_with_key(key.into());
         self
     }
 
-    pub fn spawn_with_key_bundle(
-        &mut self,
-        key: impl Into<SpawnKey>,
-        bundle: impl Bundle,
-    ) -> &mut Self {
+    pub fn spawn_key_bundle(&mut self, key: impl Into<SpawnKey>, bundle: impl Bundle) -> &mut Self {
         self.0.add_child(SpawnKeyBundle(key.into(), bundle));
         self
     }
@@ -558,7 +566,7 @@ mod tests {
         let mut app = app();
         app.add_spawnable("FOO", Foo);
         let world = app.world_mut();
-        let entity = world.spawn_with_key("FOO").id();
+        let entity = world.spawn_key("FOO").id();
         assert!(world.entity(entity).contains::<Foo>());
     }
 
@@ -568,7 +576,7 @@ mod tests {
         app.add_spawnable("FOO", Foo);
         let entity = {
             let world = app.world_mut();
-            world.run_system_once(|mut commands: Commands| commands.spawn_with_key("FOO").id())
+            world.run_system_once(|mut commands: Commands| commands.spawn_key("FOO").id())
         };
         app.update();
         let world = app.world();
@@ -616,7 +624,7 @@ mod tests {
         let world = app.world_mut();
         let entity = world
             .spawn_with(Foo.with_children(|foo| {
-                foo.spawn_with_key("BAR");
+                foo.spawn_key("BAR");
             }))
             .id();
         let children = world.entity(entity).get::<Children>().unwrap();
@@ -633,7 +641,7 @@ mod tests {
             world.run_system_once(|mut commands: Commands| {
                 commands
                     .spawn_with(Foo.with_children(|foo| {
-                        foo.spawn_with_key("BAR");
+                        foo.spawn_key("BAR");
                     }))
                     .id()
             })
