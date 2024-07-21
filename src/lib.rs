@@ -98,6 +98,12 @@ pub trait SpawnCommands {
         T: 'static + SpawnOnce + Send + Sync;
 
     fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'_>;
+
+    fn spawn_with_key_bundle(
+        &mut self,
+        key: impl Into<SpawnKey>,
+        bundle: impl Bundle,
+    ) -> EntityCommands<'_>;
 }
 
 impl SpawnCommands for Commands<'_, '_> {
@@ -126,6 +132,25 @@ impl SpawnCommands for Commands<'_, '_> {
         });
         self.entity(entity)
     }
+
+    fn spawn_with_key_bundle(
+        &mut self,
+        key: impl Into<SpawnKey>,
+        bundle: impl Bundle,
+    ) -> EntityCommands<'_> {
+        let key = key.into();
+        let entity = self.spawn_empty().id();
+        self.add(move |world: &mut World| {
+            if let Some(spawnable) = world.resource_mut::<Spawnables>().take(&key) {
+                spawnable.spawn(world, entity);
+                world.entity_mut(entity).insert(bundle);
+                world.resource_mut::<Spawnables>().insert(key, spawnable);
+            } else {
+                panic!("invalid spawn key: {key:?}");
+            }
+        });
+        self.entity(entity)
+    }
 }
 
 /// Trait used to spawn spawnables either directly or via a [`SpawnKey`] using [`World`].
@@ -135,6 +160,12 @@ pub trait SpawnWorld {
         T: 'static + SpawnOnce + Send + Sync;
 
     fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> EntityWorldMut;
+
+    fn spawn_with_key_bundle(
+        &mut self,
+        key: impl Into<SpawnKey>,
+        bundle: impl Bundle,
+    ) -> EntityWorldMut;
 }
 
 impl SpawnWorld for World {
@@ -154,6 +185,24 @@ impl SpawnWorld for World {
         let entity = self.spawn_empty().id();
         if let Some(spawnable) = self.resource_mut::<Spawnables>().take(&key) {
             spawnable.spawn(self, entity);
+            self.resource_mut::<Spawnables>().insert(key, spawnable);
+            invoke_spawn_children(self);
+        } else {
+            panic!("invalid spawn key: {key:?}");
+        }
+        self.entity_mut(entity)
+    }
+
+    fn spawn_with_key_bundle(
+        &mut self,
+        key: impl Into<SpawnKey>,
+        bundle: impl Bundle,
+    ) -> EntityWorldMut {
+        let key = key.into();
+        let entity = self.spawn_empty().id();
+        if let Some(spawnable) = self.resource_mut::<Spawnables>().take(&key) {
+            spawnable.spawn(self, entity);
+            self.entity_mut(entity).insert(bundle);
             self.resource_mut::<Spawnables>().insert(key, spawnable);
             invoke_spawn_children(self);
         } else {
@@ -284,10 +333,7 @@ impl SpawnChildren {
         Self(Vec::new())
     }
 
-    fn add_child<T>(&mut self, spawnable: T)
-    where
-        T: 'static + SpawnOnce + Send + Sync,
-    {
+    fn add_child(&mut self, spawnable: impl SpawnableOnce) {
         self.0.push(Box::new(spawnable));
     }
 
@@ -336,6 +382,15 @@ impl SpawnChildBuilder<'_> {
         self.0.add_child_with_key(key.into());
         self
     }
+
+    pub fn spawn_with_key_bundle(
+        &mut self,
+        key: impl Into<SpawnKey>,
+        bundle: impl Bundle,
+    ) -> &mut Self {
+        self.0.add_child(SpawnKeyBundle(key.into(), bundle));
+        self
+    }
 }
 
 trait Spawnable: 'static + Send + Sync {
@@ -373,6 +428,20 @@ impl SpawnableOnce for SpawnKey {
             world.resource_mut::<Spawnables>().insert(*self, spawnable);
         } else {
             panic!("invalid spawn key: {self:?}");
+        }
+    }
+}
+
+struct SpawnKeyBundle<T>(SpawnKey, T);
+
+impl<T: Bundle> SpawnableOnce for SpawnKeyBundle<T> {
+    fn spawn_once(self: Box<Self>, world: &mut World, entity: Entity) {
+        if let Some(spawnable) = world.resource_mut::<Spawnables>().take(&self.0) {
+            spawnable.spawn(world, entity);
+            world.entity_mut(entity).insert(self.1);
+            world.resource_mut::<Spawnables>().insert(self.0, spawnable);
+        } else {
+            panic!("invalid spawn key: {:?}", self.0);
         }
     }
 }
