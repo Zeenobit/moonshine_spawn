@@ -360,17 +360,9 @@ impl Default for SpawnChildren {
 pub struct SpawnChildBuilder<'a>(&'a mut SpawnChildren);
 
 impl SpawnChildBuilder<'_> {
-    pub fn spawn<T>(&mut self, spawnable: T) -> &mut Self
-    where
-        T: 'static + SpawnOnce + Send + Sync,
-    {
+    pub fn spawn(&mut self, spawnable: impl SpawnOnce) -> &mut Self {
         self.0.add_child(spawnable);
         self
-    }
-
-    #[deprecated(note = "use `spawn_key` instead")]
-    pub fn spawn_with_key(&mut self, key: impl Into<SpawnKey>) -> &mut Self {
-        self.spawn_key(key)
     }
 
     pub fn spawn_key(&mut self, key: impl Into<SpawnKey>) -> &mut Self {
@@ -378,7 +370,7 @@ impl SpawnChildBuilder<'_> {
         self
     }
 
-    pub fn spawn_key_bundle(&mut self, key: impl Into<SpawnKey>, bundle: impl Bundle) -> &mut Self {
+    pub fn spawn_key_with(&mut self, key: impl Into<SpawnKey>, bundle: impl Bundle) -> &mut Self {
         self.0.add_child(SpawnKeyWith(key.into(), bundle));
         self
     }
