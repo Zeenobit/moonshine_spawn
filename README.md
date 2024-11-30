@@ -47,7 +47,7 @@ app.add_plugins((DefaultPlugins, SpawnPlugin));
 let chicken_key: SpawnKey = app.add_spawnable("chicken", Chicken);
 
 // Spawn a spawnable with a key:
-let chicken = app.world_mut().spawn_with_key(chicken_key); // .spawn_with_key("chicken") also works!
+let chicken = app.world_mut().spawn_key(chicken_key); // .spawn_key("chicken") also works!
 
 #[derive(Component)]
 struct Chicken;
@@ -131,7 +131,7 @@ impl ChickenBundle {
 struct Chicken;
 
 fn open_egg(egg: Egg, commands: &mut Commands) -> Entity {
-    commands.spawn_with(egg).id()
+    commands.spawn_once_with(egg).id()
 }
 ```
 
@@ -225,7 +225,7 @@ let mut app = App::new();
 
 // This system spawns a chicken during setup:
 fn spawn_chicken(mut commands: Commands) {
-    commands.spawn_with(chicken());
+    commands.spawn_once_with(chicken());
 }
 
 // This system depends on children of `Chicken`:

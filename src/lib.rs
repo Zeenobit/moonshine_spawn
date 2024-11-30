@@ -8,7 +8,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_ecs::schedule::SystemConfigs;
 use bevy_ecs::system::EntityCommands;
-use bevy_hierarchy::BuildWorldChildren;
+use bevy_hierarchy::BuildChildren;
 use bevy_reflect::prelude::*;
 use bevy_utils::HashMap;
 
@@ -105,7 +105,7 @@ pub trait SpawnCommands {
 impl SpawnCommands for Commands<'_, '_> {
     fn spawn_with(&mut self, spawnable: impl Spawn) -> EntityCommands<'_> {
         let entity = self.spawn_empty().id();
-        self.add(move |world: &mut World| {
+        self.queue(move |world: &mut World| {
             Spawnable::spawn(&spawnable, world, entity);
         });
         self.entity(entity)
@@ -113,7 +113,7 @@ impl SpawnCommands for Commands<'_, '_> {
 
     fn spawn_once_with(&mut self, spawnable: impl SpawnOnce) -> EntityCommands<'_> {
         let entity = self.spawn_empty().id();
-        self.add(move |world: &mut World| {
+        self.queue(move |world: &mut World| {
             SpawnableOnce::spawn_once(spawnable, world, entity);
         });
         self.entity(entity)
@@ -122,7 +122,7 @@ impl SpawnCommands for Commands<'_, '_> {
     fn spawn_key(&mut self, key: impl Into<SpawnKey>) -> EntityCommands<'_> {
         let key: SpawnKey = key.into();
         let entity = self.spawn_empty().id();
-        self.add(move |world: &mut World| {
+        self.queue(move |world: &mut World| {
             key.spawn_once(world, entity);
         });
         self.entity(entity)
@@ -135,7 +135,7 @@ impl SpawnCommands for Commands<'_, '_> {
     ) -> EntityCommands<'_> {
         let key = key.into();
         let entity = self.spawn_empty().id();
-        self.add(move |world: &mut World| {
+        self.queue(move |world: &mut World| {
             SpawnKeyWith(key, bundle).spawn_once(world, entity);
         });
         self.entity(entity)
@@ -509,7 +509,9 @@ mod tests {
         let mut app = app();
         let entity = {
             let world = app.world_mut();
-            world.run_system_once(|mut commands: Commands| commands.spawn_once_with(Foo).id())
+            world
+                .run_system_once(|mut commands: Commands| commands.spawn_once_with(Foo).id())
+                .unwrap()
         };
         app.update();
         let world = app.world();
@@ -531,7 +533,9 @@ mod tests {
         app.add_spawnable("FOO", Foo);
         let entity = {
             let world = app.world_mut();
-            world.run_system_once(|mut commands: Commands| commands.spawn_key("FOO").id())
+            world
+                .run_system_once(|mut commands: Commands| commands.spawn_key("FOO").id())
+                .unwrap()
         };
         app.update();
         let world = app.world();
@@ -557,13 +561,15 @@ mod tests {
         let mut app = app();
         let entity = {
             let world = app.world_mut();
-            world.run_system_once(|mut commands: Commands| {
-                commands
-                    .spawn_once_with(Foo.with_children(|foo| {
-                        foo.spawn(Bar);
-                    }))
-                    .id()
-            })
+            world
+                .run_system_once(|mut commands: Commands| {
+                    commands
+                        .spawn_once_with(Foo.with_children(|foo| {
+                            foo.spawn(Bar);
+                        }))
+                        .id()
+                })
+                .unwrap()
         };
         app.update();
         let world = app.world();
@@ -593,13 +599,15 @@ mod tests {
         app.add_spawnable("BAR", Bar);
         let entity = {
             let world = app.world_mut();
-            world.run_system_once(|mut commands: Commands| {
-                commands
-                    .spawn_once_with(Foo.with_children(|foo| {
-                        foo.spawn_key("BAR");
-                    }))
-                    .id()
-            })
+            world
+                .run_system_once(|mut commands: Commands| {
+                    commands
+                        .spawn_once_with(Foo.with_children(|foo| {
+                            foo.spawn_key("BAR");
+                        }))
+                        .id()
+                })
+                .unwrap()
         };
         app.update();
         let world = app.world();
