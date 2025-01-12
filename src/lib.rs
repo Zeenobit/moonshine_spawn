@@ -1,3 +1,7 @@
+#![deprecated(
+    since = "0.2.4",
+    note = "see documentation at https://github.com/Zeenobit/moonshine_spawn for details"
+)]
 #![doc = include_str!("../README.md")]
 
 use std::fmt::{Debug, Formatter, Result as FormatResult};
