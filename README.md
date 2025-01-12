@@ -8,6 +8,14 @@
 
 Collection of tools for spawning entities in [Bevy](https://bevyengine.org/).
 
+## ⚠️ Deprecated
+
+This crate is deprecated in favor of the upcoming [BSN](https://github.com/bevyengine/bevy/discussions/14437) changes to Bevy.
+
+In the meantime, prefer to use [i-can't-believe-its-not-bsn](https://github.com/Leafwing-Studios/i-cant-believe-its-not-bsn) as it is a closer implementation to BSN and will make future migration easier.
+
+The only feature of this library that is not covered by BSN are spawn keys. Implementation of spawn keys on user code should be trivial, especially with [🏷️ Moonshine Tag](https://github.com/Zeenobit/moonshine_tag).
+
 ## Overview
 
 In Bevy, complex hierarchies of entities are typically spawned using the [`ChildBuilder`](https://docs.rs/bevy/latest/bevy/prelude/struct.ChildBuilder.html):
